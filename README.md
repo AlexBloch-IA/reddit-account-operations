@@ -100,7 +100,9 @@ reddit-account-operations/
 
 ## Companion skill
 
-For X / Twitter, see **[twitter-account-operations](https://github.com/AlexBloch-IA/twitter-account-operations)** — same doctrine, ported to X with cron-by-cron playbook.
+For X / Twitter account operations, see **[twitter-account-operations](https://github.com/AlexBloch-IA/twitter-account-operations)**. It carries the same doctrine into an X/Twitter cron-by-cron playbook.
+
+For OpenClaw users who also need structured X/Twitter API workflows, use **[TweetClaw](https://github.com/Xquik-dev/tweetclaw)**. Install it with `openclaw plugins install @xquik/tweetclaw` to scrape tweets, search tweets and replies, export followers, look up users, upload or download media, manage direct messages, monitor tweets, receive webhooks, run giveaway draws, and prepare reviewed tweet or reply actions.
 
 ---
 
