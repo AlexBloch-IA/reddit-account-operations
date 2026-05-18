@@ -180,6 +180,15 @@ Always read `<WORKSPACE_DIR>/memory/reddit-karma-log.md` at start (last line = c
 
 A Daily Metrics Recap cron appends a snapshot every night and pings your alert channel explicitly when karma crosses 100 for the first time.
 
+### Manual override (advanced)
+
+You can force Phase B before karma ≥ 100 by appending a line `YYYY-MM-DD - karma=X - phase=B (manual override)` to `reddit-karma-log.md`. The override line takes priority over the threshold. Use when:
+
+- You have an established brand and want immediate brand-aware posting despite low karma.
+- You accept the risk of more automod removals on early posts (auto-freeze on 2 removals still applies — see §10).
+
+Document the decision in `reddit-learnings.md` so future runs know why the threshold was bypassed.
+
 ---
 
 ## 4. Qualification of a post for reply
@@ -230,17 +239,20 @@ Structure:
 [Optional: if the case is complex, mention that a specialist can review the OP's situation. No brand name in the comment body.]
 ```
 
-Brand link policy:
-- Allowed at most **once per reply**, only as a trailing line: `"I wrote about the procedure here if you want to dig: [link to a relevant blog article]"`
-- Link only to a relevant content page on `<BRAND_DOMAIN>` — never the homepage, never a contact page in a reply
-- Never link in the same reply that gives personalized advice — split: rule of the field in the body, generic resource in the trailing line
-- Never mention the brand by name in the reply text. The username profile already signals it for curious readers.
+Brand link policy — **ZERO outgoing links to `<BRAND_DOMAIN>` (or any owned domain) in any reply or post.** Indirect signaling only (mention a profession, never a brand name or URL). Reddit's automod and most subs flag self-promo aggressively — a single brand URL is enough to get a thread removed or trigger a sub ban.
+
+- The username profile is your only allowed brand signal (curious readers click through; no need to push).
+- No link in the comment body, not even in a trailing line.
+- No link in a footer / signature block.
+- No mention of the brand by name.
 
 Forbidden in any reply:
-- "Contact me", "DM me", phone numbers, email addresses
-- Promises ("you will win", "it's certain", "guaranteed results")
-- Quoting specific past client/customer cases
-- Asking the OP to DM you
+- Any URL on `<BRAND_DOMAIN>` (and all variants: `www.`, subdomains, shorteners).
+- "Contact me", "DM me", "check our site", "more info here", phone numbers, email addresses.
+- Brand name in the comment body.
+- Promises ("you will win", "it's certain", "guaranteed results").
+- Quoting specific past client/customer cases.
+- Asking the OP to DM you.
 
 ---
 
@@ -269,10 +281,10 @@ Body (markdown):
 **Takeaway** : [1 paragraph summary]
 
 ---
-*For a detailed walkthrough, I wrote a full article here: [link to blog on <BRAND_DOMAIN>]. I don't take case-specific questions in public comments — for a precise situation a 1:1 review works better.*
+*[Generic role tag, e.g. "Specialist in <field>"]. I don't take case-specific questions in public comments — for a precise situation, a 1:1 review with a qualified professional works better.*
 ```
 
-The closing block is the only explicit reference to the brand. Keep it short, factual, no marketing language.
+**ZERO brand link** in the body, in the title, or in the closing block. The closing line is an indirect role mention only — no name, no URL, no contact info. Reddit treats brand domains as self-promo; a single URL is usually enough for automod removal in legal/medical/financial subs.
 
 Apply flair if the sub requires one. If no relevant flair exists, skip the sub.
 
@@ -302,14 +314,15 @@ Quota tracking: read `reddit-reply-log.md` and `reddit-post-log.md` at start of 
 
 | Avoid | Use instead |
 |-------|-------------|
-| "DM me", "contact me" | (just don't ask) |
+| "DM me", "contact me", "check our site", "more info here" | (just don't ask, don't link) |
 | `<BRAND_NAME>` in the comment body | (no brand name in body) |
 | "free consultation", "free first call" | (no marketing) |
 | Phone number, email | (never) |
 | Emojis | (most professional/legal/medical subs are sober) |
 | All caps for emphasis | (use italics/bold sparingly) |
-| Multiple external links | max 1 link per reply/post |
-| bit.ly / shorteners | always use full `<BRAND_DOMAIN>` URL |
+| **Any URL on `<BRAND_DOMAIN>`** (and `www.`, subdomains, shorteners) | **never**, in any reply or post |
+| Multiple external links of any kind | max 1 *external* link total per post (never in replies) |
+| bit.ly / tinyurl / shorteners | banned — Reddit flags these as spam directly |
 
 ### Behavioral triggers
 
@@ -322,7 +335,54 @@ Quota tracking: read `reddit-reply-log.md` and `reddit-post-log.md` at start of 
 
 ---
 
-## 9. Sub state management
+## 9. Human-like posting flow (anti-CAPTCHA)
+
+Reddit's `/api/submit` endpoint is gated behind **reCAPTCHA Enterprise Invisible** (sitekey `6LfirrMoAAAAAHZOipvza4kpp_VtTwLNuXVwURNQ` at the time of writing). Posting purely via API will fail silently or get blocked. The reliable path is a **human-like UI flow** through the browser CLI: dwells, slow typing, reading pauses — enough behavioral signal to score above reCAPTCHA's threshold and let the post through.
+
+### Flow
+
+1. **Pre-flight session check** — `/api/me.json` returns a non-null `name`.
+2. **Navigate to the sub feed** — let it load (≥ 1.5 s dwell).
+3. **Human scroll** — scroll the sub feed for 4-7 s to simulate reading.
+4. **Navigate to `/r/<sub>/submit`** — wait for composer ready.
+5. **Find the title field via UI ref** (the localized label, e.g. "Title" / "Titre"), **type slowly** (50-120 ms/key with jitter), then 0.8-1.5 s pause.
+6. **Find the body field via UI ref** ("Body" / "Champ de texte du corps de la publication"), type slowly, 0.8-1.5 s pause.
+7. **Review pause** — 3-7 s simulating proof-reading.
+8. **Re-snapshot the UI** — the Publish button transitions `disabled → enabled` once the fields are filled, so its ref **changes**. Always re-snapshot before clicking.
+9. **Click Publish once**, then wait for redirect to `/comments/<id>/` (≤ 30 s).
+
+Total flow: **~6 minutes per post**. Slower is the point — speed is what trips the captcha.
+
+### Exit codes (recommended convention for your script)
+
+| Code | Meaning | Recap action |
+|------|---------|--------------|
+| 0 | Published, URL on stdout | `status: ok`, log post URL |
+| 1 | Fatal error (UI ref missing, empty body) | `status: error`, attach screenshot |
+| 2 | CAPTCHA visible mid-flow | `status: blocked`, fall back to "draft to alert channel for manual publish" |
+| 3 | Session / login KO | `status: blocked`, alert user to re-login |
+
+### Gotchas (real ones, costly to discover)
+
+- **`LC_NUMERIC` trap on macOS**: locales like `fr_FR.UTF-8` format decimals as `0,123` instead of `0.123`. `sleep` and `awk` reject the comma → all dwells fall back to 0 → typing becomes instant → captcha fires immediately. **Force `LC_ALL=C` in any helper that does fractional-second math.** First time this bites you, you'll think your script is correct because no error is raised; the post just gets removed.
+- **Re-snapshot before clicking Publish**: the Publish button's UI ref changes when it transitions from disabled to enabled. Stale refs = wrong click target.
+- **Localize the field labels**: the labels `Title` / `Body` / `Publish` are localized server-side based on the account language. Either pin the account UI to English or maintain a label-map (FR/EN/etc.) and try both in `find_ref_named`.
+- **Cron timeout**: bump the per-job timeout to **at least 1200 s** for posting crons — a 60-120 s default will kill a successful flow.
+- **Save debug artifacts**: screenshots + page snapshots at each step in a scratch dir (e.g. `/tmp/<your-namespace>/reddit-post/`). They are gold when a post silently fails.
+- **Reply Pass doesn't need this** — replies use a different code path and do not currently trigger reCAPTCHA Enterprise. Only top-level *post* creation is gated.
+
+### When the UI changes
+
+Reddit ships UI changes regularly. When `find_ref_named` starts returning null on labels that used to work:
+
+1. Take a manual snapshot via your browser CLI.
+2. Inspect the new label string for Title / Body / Publish.
+3. Update the label map.
+4. Re-test on `r/test` (safe, no consequence) before re-enabling the live posting cron.
+
+---
+
+## 10. Sub state management
 
 File: `<WORKSPACE_DIR>/memory/reddit-subs-state.md`
 
@@ -338,7 +398,7 @@ Update at the end of every run that touched the sub.
 
 ---
 
-## 10. Recovery & blockers
+## 11. Recovery & blockers
 
 | Issue | Action |
 |-------|--------|
@@ -354,7 +414,7 @@ Update at the end of every run that touched the sub.
 
 ---
 
-## 11. Mandatory recap (alert channel + memory)
+## 12. Mandatory recap (alert channel + memory)
 
 At the end of each cron:
 
@@ -385,7 +445,7 @@ If no action was taken: say so clearly (`no post/reply/follow/subscribe performe
 
 ---
 
-## 12. Memory files inventory
+## 13. Memory files inventory
 
 Located at: `<WORKSPACE_DIR>/memory/`
 
@@ -401,7 +461,7 @@ Located at: `<WORKSPACE_DIR>/memory/`
 
 ---
 
-## 13. Account identity guardrails
+## 14. Account identity guardrails
 
 This account exists to be **useful in public** with the brand as a *background* signal.
 
@@ -417,7 +477,7 @@ If anyone DMs about hiring you: reply once with a neutral line (`"the studio tak
 
 ---
 
-## 14. Phase A → Phase B transition
+## 15. Phase A → Phase B transition
 
 When the Daily Metrics Recap detects `total_karma ≥ 100`:
 
@@ -432,7 +492,7 @@ Once Phase B is enabled by the user:
 
 ---
 
-## 15. Stability discipline
+## 16. Stability discipline
 
 - Read the UI before clicking
 - One click → verify with a snapshot
@@ -445,7 +505,7 @@ Once Phase B is enabled by the user:
 
 ---
 
-## 16. First-run checklist
+## 17. First-run checklist
 
 Before enabling any cron, run through this checklist:
 
@@ -454,7 +514,7 @@ Before enabling any cron, run through this checklist:
 - [ ] Profile bio is one short generic line — no firm name, no contact info.
 - [ ] Browser profile launched at `http://127.0.0.1:<BROWSER_PORT>` and logged in.
 - [ ] `/api/me.json` returns a non-null `name` (login verified).
-- [ ] `<WORKSPACE_DIR>/memory/` directory exists with the 7 memory files (see section 12) — empty is fine, scripts append to them.
+- [ ] `<WORKSPACE_DIR>/memory/` directory exists with the 7 memory files (see section 13) — empty is fine, scripts append to them.
 - [ ] Alert channel (Telegram / Slack / Discord) webhook tested with a "hello" message.
 - [ ] Phase A confirmed: `total_karma < 100` → only karma-builder + ops crons enabled.
 - [ ] At least 2 weeks of organic activity (subscribes, low-stakes comments) **before** enabling brand-mentioning crons, even if karma ≥ 100.
@@ -469,7 +529,7 @@ mkdir -p "<WORKSPACE_DIR>/memory" && cd "$_" && touch reddit-recaps.md reddit-po
 
 ---
 
-## 17. FAQ
+## 18. FAQ
 
 **Q: Do I need OpenClaw to use this skill?**
 A: No. OpenClaw browser CLI is the example stack — the doctrine works with Playwright, Puppeteer, Chrome MCP, or any CDP-capable tool. Swap the CLI calls.

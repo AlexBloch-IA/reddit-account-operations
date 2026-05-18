@@ -4,7 +4,7 @@
 
 [![License: MIT-0](https://img.shields.io/badge/License-MIT--0-blue.svg)](https://opensource.org/licenses/MIT-0)
 [![ClawHub](https://img.shields.io/badge/ClawHub-Published-orange)](https://clawhub.ai/alexbloch-ia/reddit-account-operations)
-[![Version](https://img.shields.io/badge/version-1.1.0-green)](#changelog)
+[![Version](https://img.shields.io/badge/version-1.2.0-green)](#changelog)
 
 A Claude Code / OpenClaw skill for running Reddit brand accounts safely. Battle-tested in a regulated-field operation, ported to be domain-agnostic.
 
@@ -15,10 +15,12 @@ A Claude Code / OpenClaw skill for running Reddit brand accounts safely. Battle-
 ## What's in the box
 
 - **3-role mental model** for any Reddit account (`red-post` / `red-engage` / `red-stealth`)
-- **Karma-phased posting**: Phase A safety net (karma < 100, zero brand mentions) → Phase B (full doctrine, brand-aware)
+- **Karma-phased posting**: Phase A safety net (karma < 100, zero brand mentions) → Phase B (full doctrine, brand-aware) — with **manual override path** for established brands
+- **Zero-outgoing-link policy** in replies and posts — the only doctrine that actually survives Reddit automod long-term
+- **Human-like posting flow** (new in v1.2.0): how to bypass Reddit's reCAPTCHA Enterprise Invisible on `/api/submit` via UI dwells + slow typing, including the `LC_NUMERIC` macOS trap that silently breaks scripts
 - **Strict reply qualification**: age, score, mods, expert-duplicate check, sub freeze
 - **Hard quotas** calibrated under spam-filter thresholds (replies/day, posts/week, time-between-actions)
-- **Anti-spam triggers**, both content (banned phrases, single-link rule) and behavioral (no reply within 60s of post, no >3 actions in 30 min)
+- **Anti-spam triggers**, both content (banned phrases, shorteners-banned) and behavioral (no reply within 60s of post, no >3 actions in 30 min)
 - **Sub state tracking**: auto-freeze a sub after two removals
 - **Full recovery playbook**: `status:stopped`, HTTP 429, 403, captcha, shadowban suspicion, automod removals
 - **Memory file inventory** for stateful agents
