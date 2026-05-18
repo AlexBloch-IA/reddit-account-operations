@@ -30,6 +30,46 @@ Before running anything, fill these placeholders in your local copy or your agen
 
 All shell snippets below assume an [OpenClaw](https://openclaw.ai) browser CLI bound by CDP, but the doctrine works with any browser-automation stack (Playwright, Puppeteer, Chrome MCP). Swap the CLI calls for your own.
 
+### Quick config (copy-paste YAML)
+
+If your agent reads config from YAML, drop this in `<WORKSPACE_DIR>/config.yaml`:
+
+```yaml
+brand:
+  name: <BRAND_NAME>
+  domain: <BRAND_DOMAIN>
+
+reddit:
+  username: <REDDIT_USERNAME>        # e.g. "u/AcmeAlex"
+  browser_profile: <BROWSER_PROFILE> # e.g. "reddit-live"
+  browser_port: <BROWSER_PORT>       # e.g. 9223
+
+discovery:
+  niche_keywords: <NICHE_KEYWORDS>   # e.g. "retrait permis OR contester amende"
+  target_subs:
+    - r/<sub-1>
+    - r/<sub-2>
+
+workspace:
+  dir: <WORKSPACE_DIR>               # e.g. "~/.openclaw/workspace/reddit-acme"
+
+alerts:
+  channel: telegram | slack | discord
+  webhook: <YOUR_WEBHOOK_URL>
+```
+
+### Compatibility
+
+The skill is markdown — it works wherever an agent reads `SKILL.md`:
+
+| Stack | Skill install path |
+|---|---|
+| [Claude Code](https://claude.ai/code) | `~/.claude/skills/reddit-account-operations/` |
+| [OpenClaw](https://openclaw.ai) | `~/.openclaw/skills/reddit-account-operations/` |
+| ClawHub-published | one-click install via [clawhub.ai](https://clawhub.ai/alexbloch-ia/reddit-account-operations) |
+| Cursor / Copilot CLI | drop `SKILL.md` into your project's `.cursorrules` or `AGENTS.md` |
+| Any LLM agent reading markdown rules | concatenate `SKILL.md` into your system prompt |
+
 ---
 
 ## 1. Browser architecture
@@ -402,3 +442,49 @@ Once Phase B is enabled by the user:
 - Never silently fake a successful action — always verify via API or UI confirmation
 
 **Better silence than spam. Better a blockage report than a fake success.**
+
+---
+
+## 16. First-run checklist
+
+Before enabling any cron, run through this checklist:
+
+- [ ] Section 0 placeholders filled in your local copy / agent memory.
+- [ ] Reddit account created with **neutral username** (no brand in the handle).
+- [ ] Profile bio is one short generic line — no firm name, no contact info.
+- [ ] Browser profile launched at `http://127.0.0.1:<BROWSER_PORT>` and logged in.
+- [ ] `/api/me.json` returns a non-null `name` (login verified).
+- [ ] `<WORKSPACE_DIR>/memory/` directory exists with the 7 memory files (see section 12) — empty is fine, scripts append to them.
+- [ ] Alert channel (Telegram / Slack / Discord) webhook tested with a "hello" message.
+- [ ] Phase A confirmed: `total_karma < 100` → only karma-builder + ops crons enabled.
+- [ ] At least 2 weeks of organic activity (subscribes, low-stakes comments) **before** enabling brand-mentioning crons, even if karma ≥ 100.
+
+A bash one-liner to init the memory files:
+
+```bash
+mkdir -p "<WORKSPACE_DIR>/memory" && cd "$_" && touch reddit-recaps.md reddit-post-log.md reddit-reply-log.md reddit-karma-log.md reddit-subs-state.md reddit-ideas.md reddit-learnings.md
+```
+
+(The GitHub repo ships an `init-memory.sh` script that does the same interactively.)
+
+---
+
+## 17. FAQ
+
+**Q: Do I need OpenClaw to use this skill?**
+A: No. OpenClaw browser CLI is the example stack — the doctrine works with Playwright, Puppeteer, Chrome MCP, or any CDP-capable tool. Swap the CLI calls.
+
+**Q: Can I use this skill for multiple Reddit accounts?**
+A: Yes — clone the workspace dir per account. Each account gets its own `memory/` and its own browser profile. Do not cross-link accounts in any reply.
+
+**Q: What if my niche has only one relevant sub and it's strict?**
+A: Run Phase A on adjacent subs (low-stakes, high-volume) to build karma, then start Phase B on the niche sub with the longest possible runway. Some niche subs also require 90+ days of account age regardless of karma.
+
+**Q: Is shadowban detection reliable?**
+A: Partially. The "comment posted but invisible in incognito after 5 min" check catches most shadowbans, but Reddit also does **community-specific shadowbans** that don't fire that signal. Track per-sub upvote ratios over time as a backup signal.
+
+**Q: Can I run multiple crons in parallel?**
+A: Yes, but respect the global "30 min apart" rule across all crons. A lock file at `<WORKSPACE_DIR>/.lock` is the cleanest way to enforce it.
+
+**Q: What if my account is suspended?**
+A: Stop everything. Do not appeal automatically. Manual review only. Document the suspension in `reddit-learnings.md` with the exact last action before suspension.

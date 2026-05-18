@@ -4,7 +4,7 @@
 
 [![License: MIT-0](https://img.shields.io/badge/License-MIT--0-blue.svg)](https://opensource.org/licenses/MIT-0)
 [![ClawHub](https://img.shields.io/badge/ClawHub-Published-orange)](https://clawhub.ai/alexbloch-ia/reddit-account-operations)
-[![Version](https://img.shields.io/badge/version-1.0.0-green)](#changelog)
+[![Version](https://img.shields.io/badge/version-1.1.0-green)](#changelog)
 
 A Claude Code / OpenClaw skill for running Reddit brand accounts safely. Battle-tested in a regulated-field operation, ported to be domain-agnostic.
 
